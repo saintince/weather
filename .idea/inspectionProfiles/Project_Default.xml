@@ -1,0 +1,38 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="false" level="WARNING" enabled_by_default="false">
+      <option name="ignoredPackages">
+        <list>
+          <option value="annotated-types" />
+          <option value="anyio" />
+          <option value="backports.asyncio.runner" />
+          <option value="certifi" />
+          <option value="click" />
+          <option value="colorama" />
+          <option value="exceptiongroup" />
+          <option value="fastapi" />
+          <option value="h11" />
+          <option value="httpcore" />
+          <option value="httpx" />
+          <option value="idna" />
+          <option value="iniconfig" />
+          <option value="packaging" />
+          <option value="pluggy" />
+          <option value="pydantic" />
+          <option value="pydantic_core" />
+          <option value="Pygments" />
+          <option value="pytest" />
+          <option value="pytest-asyncio" />
+          <option value="python-multipart" />
+          <option value="sniffio" />
+          <option value="starlette" />
+          <option value="tomli" />
+          <option value="typing-inspection" />
+          <option value="typing_extensions" />
+          <option value="uvicorn" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
