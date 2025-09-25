@@ -16,7 +16,7 @@ Base = declarative_base()
 SECRET_KEY = "my_secret_key"
 ALGORITHM = "HS256"
 
-API_KEY = "YOUR_OPENWEATHER_API_KEY"
+API_KEY = "827b0f7b297041d271b39146e6b6e755"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
@@ -133,13 +133,18 @@ async def get_weather(city: str):
     url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric"
     async with httpx.AsyncClient() as client:
         response = await client.get(url)
-        data = response.json()
-        return {
-            "city": data["name"],
-            "temperature": data["main"]["temp"],
-            "description": data["weather"][0]["description"],
-            "humidity": data["main"]["humidity"],
-        }
+        if response.status_code == 200:
+            data = response.json()
+            weather = {
+                "city": data["name"],
+                "temperature": data["main"]["temp"],
+                "description": data["weather"][0]["description"],
+                "humidity": data["main"]["humidity"]
+            }
+            return weather
+        else:
+            raise HTTPException(status_code=400, detail="Город не найден. Проверьте правильность написания.")
+
 
 
 @app.get("/favorites", response_model=list[UserResponse])
@@ -149,14 +154,25 @@ def get_favorites(db: Session = Depends(get_db), current_user: str = Depends(get
 
 
 @app.post("/favorites", response_model=FavoriteCityCreate)
-def create_favorite(city: FavoriteCityCreate, db: Session = Depends(get_db), current_user: str = Depends(get_current_user)):
+async def create_favorite(city: FavoriteCityCreate, db: Session = Depends(get_db), current_user: str = Depends(get_current_user)):
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={city.city}&appid={API_KEY}&units=metric"
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
+        if response.status_code != 200:
+            raise HTTPException(status_code=400,detail="Такого города не существует")
+        data = response.json()
+        valid_city = data["name"]
+
     user = db.query(User).filter(User.username == current_user).first()
-    db_city = FavCity(user_id=user.id, city=city.city)
-    db.add(db_city)
+    existing = db.query(FavCity).filter(FavCity.user_id == user.id, FavCity.city == valid_city).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Город уже добавлен")
+
+    db_city = FavCity(user_id=user.id, city=valid_city)
     db.add(db_city)
     db.commit()
     db.refresh(db_city)
-    return db_city
+    return {"city": db_city.city}
 
 
 @app.delete("/favorites/{city}")
@@ -168,6 +184,7 @@ def delete_city(city: str, db: Session = Depends(get_db), current_user: str = De
     db.delete(db_city)
     db.commit()
     return {"message": f"{db_city} successfully deleted"}
+
 
 
 
