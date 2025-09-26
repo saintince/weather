@@ -4,8 +4,6 @@ import json
 import jwt
 import httpx
 import redis.asyncio as redis
-
-
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from pydantic import BaseModel, EmailStr
@@ -123,14 +121,14 @@ async def init_models():
 
 
 @app.post("/register")
-async def register(username: str, password: str, db: AsyncSession = Depends(get_db)):
-    username = username.lower()
+async def register(user: UserCreate, db: AsyncSession = Depends(get_db)):
+    username = user.username.lower()
     result = await db.execute(select(User).filter(User.username == username))
     existing_user = result.scalars().first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already exists")
 
-    new_user = User(username=username, hashed_password=hash_password(password))
+    new_user = User(username=username, hashed_password=hash_password(user.password))
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
