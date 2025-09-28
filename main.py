@@ -12,10 +12,13 @@ from sqlalchemy.orm import declarative_base
 from sqlalchemy import Column, Integer, String, select, delete
 from passlib.context import CryptContext
 
+
 DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 SECRET_KEY = "my_secret_key"
 ALGORITHM = "HS256"
 API_KEY = "827b0f7b297041d271b39146e6b6e755"
+TELEGRAM_TOKEN = "8325555598:AAGAibNWX2xNb2eMTsDRMObnAgzdao8ETOM"
+CHAT_ID = "1178080388"
 
 engine = create_async_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 async_session = async_sessionmaker(engine, expire_on_commit=False)
@@ -155,12 +158,14 @@ async def get_weather(city: str):
         if cached:
             return json.loads(cached)
 
-    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric"
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric&lang=ru"
     async with httpx.AsyncClient(timeout=15.0) as client:
         response = await client.get(url)
         if response.status_code != 200:
             raise HTTPException(status_code=404, detail="City not found")
-        data = await response.json()
+        data = response.json()
+
+
 
     weather = {
         "city": data["name"],
@@ -168,6 +173,9 @@ async def get_weather(city: str):
         "description": data["weather"][0]["description"],
         "humidity": data["main"]["humidity"]
     }
+    weather_message = (f"Погода в {weather["city"]}: {weather["temperature"]}°C, {weather['description']}, "
+                       f"влажность: {weather['humidity']}%")
+    await send_telegram_message(weather_message)
 
     if redis_client:
         await redis_client.set(city.lower(), json.dumps(weather), ex=600)
@@ -195,12 +203,12 @@ async def get_favorites(db: AsyncSession = Depends(get_db), current_user: User =
 
 @app.post("/favorites", response_model=FavoriteCityCreate)
 async def create_favorite(city: FavoriteCityCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    url = f"https://api.openweathermap.org/data/2.5/weather?q={city.city}&appid={API_KEY}&units=metric"
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={city.city}&appid={API_KEY}&units=metric&lang=ru"
     async with httpx.AsyncClient(timeout=15.0) as client:
         response = await client.get(url)
         if response.status_code != 200:
             raise HTTPException(status_code=400, detail="City not found")
-        data = await response.json()
+        data = response.json()
         valid_city = data["name"]
 
     result = await db.execute(select(FavCity).filter(FavCity.user_id == current_user.id, FavCity.city == valid_city))
@@ -236,6 +244,14 @@ async def delete_city(city: str, db: AsyncSession = Depends(get_db), current_use
 async def startup_event():
     await init_models()
     await init_redis()
+
+async def send_telegram_message(message: str):
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    payload = {"chat_id":CHAT_ID, "text": message}
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        await client.post(url, json=payload)
+
+
 
 
 if __name__ == "__main__":
